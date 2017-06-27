@@ -2,12 +2,15 @@
 import queue
 import threading
 import copy
-from .thread_base import TPEnum, BasePool, FetchThread, ParseThread, SaveThread
+import logging
+from thread_base import FLAGS, BasePool, FetchThread, ParseThread, SaveThread
+
 
 class ThreadPool(BasePool):
     """
     fetcher/parser/saver are instance of class Fetcher, Parser and Saver
     """
+
     def __init__(self, fetcher, parser, saver, url_filter=None):
         BasePool.__init__(self, fetcher, parser, saver, url_filter=url_filter)
         self._fetch_queue = queue.PriorityQueue()
@@ -15,72 +18,72 @@ class ThreadPool(BasePool):
         self._save_queue = queue.Queue()
         self._lock = threading.Lock()
 
-    def run(self, fetcher_num=10, over=True):
+    def run(self, url, keys=None, priority=0, deep=0, fetcher_num=10, repeat=0):
         """
-        :fetcher_list: keep instance of FetchThread
-        :parser_saver_list: keep instance of ParseThread/SaveThread
-        BaseThread(FetchThread/ParseThread/SaveThread) constructor:
-            __init__(name, worker, pool)
+        :url: page address
+        :keys: keywords for parse
+        :priority: for PriorityQueue only
+        :deep:
+        :fetcher_num: number of FetcherThread
+        """
 
-        Instantiate FetchThread, ParseThread and SaveThread
-        """
-        if isinstance(self._inst_fetcher, (list, tuple)):
-            fetcher_list = [FetchThread("fetcher-{}".format(str(i+1)), fetcher,
-                                        self)
-                            for (i, fetcher) in enumerate(self._inst_fetcher)]
+        logging.warning("%s ThreadPool start: fetcher_num=%s", self.__class__.__name__, fetcher_num)
+
+        self.add_task(FLAGS.URL_FETCH, (priority, url, keys, deep, repeat))
+
+        if isinstance(self._fetcher, (list, tuple)):
+            fetch_thread_list = [
+                FetchThread("fetcher-{}".format(str(i + 1)), fetcher, self)
+                for (i, fetcher) in enumerate(self._fetcher)]
         else:
-            fetcher_list = [FetchThread("fetcher-{}".format(str(i+1)),
-                                        copy.deepcopy(self._inst_fetcher),
-                                        self)
-                            for i in range(fetcher_num)]
-        parser_saver_list = [ParseThread("parser", self._inst_parser, self),
-                             SaveThread("saver", self._inst_saver, self)]
+            fetch_thread_list = [FetchThread("fetcher-{}".format(str(i + 1)),
+                                 copy.deepcopy(self._fetcher), self)
+                                 for i in range(fetcher_num)]
+        parse_save_thread_list = [ParseThread("parser", self._parser, self),
+                                  SaveThread("saver", self._saver, self)]
 
-        for thread in fetcher_list:
-            thread.setDaemon(True)
+        for fetch_thread in fetch_thread_list:
+            fetch_thread.daemon = True  # running background
             # run() and start_fetch() of class FetchThread() are running
-            thread.start()
+            fetch_thread.start()
 
-        for thread in parser_saver_list:
-            thread.setDaemon(True)
+        for parse_save_thread in parse_save_thread_list:
+            parse_save_thread.daemon = True
             # run() and start_parse() of class ParseThread() are running
-            thread.start()
+            parse_save_thread.start()
 
-        # Handle unfinished FetcheThread
-        for thread in fetcher_list:
-            if thread.is_alive():
-                thread.join()
+        # Handle unfinished FetchThread
+        for fetch_thread in fetch_thread_list:
+            if fetch_thread.is_alive():
+                fetch_thread.join()
 
-        while self._number_dict[TPEnum.URL_NOT_FETCH] > 0:
-            self.get_task(TPEnum.URL_FETCH)
-            self.finish_task(TPEnum.URL_FETCH)
+        while self._number_dict[FLAGS.URL_NOT_FETCH] > 0:
+            self.get_task(FLAGS.URL_FETCH)
+            self.finish_task(FLAGS.URL_FETCH)
 
         # Handle unfinished ParseThread
-        for thread in parser_saver_list:
+        for thread in parse_save_thread_list:
             if thread.is_alive():
                 thread.join()
 
-    def set_start_url(self, url, keys=None, priority=0, deep=0):
-        self.add_task(TPEnum.URL_FETCH, (priority, url, keys, deep, 0))
+        logging.warning("%s ThreadPool end: fetcher_num=%s", self.__class__.__name__, fetcher_num)
 
     def add_task(self, task_name, task_content):
         """
         Add a task to queue based on task_name
 
-        Queue.put_nowait(item) equals to Queue.put(item, block=False,
-                                                   timeout=None)
+        Queue.put_nowait(item) equals to Queue.put(item, block=False, timeout=None)
         """
-        if task_name == TPEnum.URL_FETCH and ((task_content[-1] > 0)
-                                         or not self._url_filter
-                                         or self._url_filter.check_and_add(task_content[1])):
-            self._fetch_queue.put(task_content, False)
-            self.update_dict(TPEnum.URL_NOT_FETCH, +1)
-        elif task_name == TPEnum.HTML_PARSE:
-            self._parse_queue.put(task_content, False)
-            self.update_dict(TPEnum.HTML_NOT_PARSE, +1)
-        elif task_name == TPEnum.ITEM_SAVE:
-            self._save_queue.put(task_content, False)
-            self.update_dict(TPEnum.ITEM_NOT_SAVE, +1)
+        if task_name == FLAGS.URL_FETCH and ((task_content[-1] > 0)
+                                             or not self._url_filter):
+            self._fetch_queue.put(task_content, block=False)
+            self.update_dict(FLAGS.URL_NOT_FETCH, +1)
+        elif task_name == FLAGS.HTML_PARSE:
+            self._parse_queue.put(task_content, block=False)
+            self.update_dict(FLAGS.HTML_NOT_PARSE, +1)
+        elif task_name == FLAGS.ITEM_SAVE:
+            self._save_queue.put(task_content, block=False)
+            self.update_dict(FLAGS.ITEM_NOT_SAVE, +1)
 
     def get_task(self, task_name):
         """
@@ -97,16 +100,16 @@ class ThreadPool(BasePool):
         ignored in that case).
         """
         task_content = None
-        if task_name == TPEnum.URL_FETCH:
+        if task_name == FLAGS.URL_FETCH:
             task_content = self._fetch_queue.get(block=True, timeout=5)
-            self.update_dict(TPEnum.URL_NOT_FETCH, -1)
-        elif task_name == TPEnum.HTML_PARSE:
+            self.update_dict(FLAGS.URL_NOT_FETCH, -1)
+        elif task_name == FLAGS.HTML_PARSE:
             task_content = self._parse_queue.get(block=True, timeout=5)
-            self.update_dict(TPEnum.HTML_NOT_PARSE, -1)
-        elif task_name == TPEnum.ITEM_SAVE:
+            self.update_dict(FLAGS.HTML_NOT_PARSE, -1)
+        elif task_name == FLAGS.ITEM_SAVE:
             task_content = self._save_queue.get(block=True, timeout=5)
-            self.update_dict(TPEnum.ITEM_NOT_SAVE, -1)
-        self.update_dict(TPEnum.TASKS_RUNNING, +1)
+            self.update_dict(FLAGS.ITEM_NOT_SAVE, -1)
+        self.update_dict(FLAGS.TASKS_RUNNING, +1)
         return task_content
 
     def finish_task(self, task_name):
@@ -119,16 +122,15 @@ class ThreadPool(BasePool):
         call to task_done() tells the queue that the processing on the task is
         complete.
         """
-        if task_name == TPEnum.URL_FETCH:
+        if task_name == FLAGS.URL_FETCH:
             self._fetch_queue.task_done()
-        elif task_name == TPEnum.HTML_PARSE:
+        elif task_name == FLAGS.HTML_PARSE:
             self._parse_queue.task_done()
-        elif task_name == TPEnum.ITEM_SAVE:
+        elif task_name == FLAGS.ITEM_SAVE:
             self._save_queue.task_done()
-        self.update_dict(TPEnum.TASKS_RUNNING, -1)
+        self.update_dict(FLAGS.TASKS_RUNNING, -1)
 
     def update_dict(self, key, value):
         self._lock.acquire()
         self._number_dict[key] += value
         self._lock.release()
-
