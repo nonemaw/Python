@@ -7,7 +7,6 @@ from config import get_url_legal
 class Parser:
     def __init__(self, max_deep=-1):
         """
-
         :param max_deep: define depth of crawler, -1 means infinite
         """
         self._max_deep = max_deep
@@ -23,17 +22,20 @@ class Parser:
         url_list[]: (url, keys, priority)
         """
 
+        # FIXME
         logging.warning("%s Parser start: priority=%s, keys=%s, deep=%s, url=%s", self.__class__.__name__, priority, keys, deep, url)
 
         try:
             parse_result, url_list, finger_print = self.html_parse(priority, url, keys, deep, content)
         except Exception as E:
 
+            # FIXME
             logging.warning("%s Parser ERROR: %s", self.__class__.__name__, E)
 
             parse_result, url_list, finger_print = -1, [], []
 
-        logging.warning("%s Parser end: parse_result=%s, len(url_list)=%s, len(save_list)=%s, url=%s", self.__class__.__name__, parse_result, len(url_list), len(finger_print), url)
+        # FIXME
+        logging.warning("%s Parser end: parse_result=%s, len(url_list)=%s, len(finger_print)=%s, url=%s", self.__class__.__name__, parse_result, len(url_list), len(finger_print), url)
 
         return parse_result, url_list, finger_print
 

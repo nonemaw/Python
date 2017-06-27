@@ -9,7 +9,6 @@ from config import make_random_useragent
 class Fetcher:
     def __init__(self, max_repeat=3, sleep_time=0):
         """
-
         :param max_repeat: define counter of re-try when failure happens
         :param sleep_time: define a random sleep_time
         """
@@ -24,6 +23,7 @@ class Fetcher:
              1 (fetch success)
         """
 
+        # FIXME
         logging.warning("%s Fetcher start: keys=%s, repeat=%s, url=%s", self.__class__.__name__, keys, repeat, url)
 
         time.sleep(random.randint(0, self._sleep_time))
@@ -31,6 +31,7 @@ class Fetcher:
             fetch_result, content = self.url_fetch(url)
         except Exception as excep:
 
+            # FIXME
             logging.warning("%s Fetcher ERROR: %s", self.__class__.__name__, excep)
 
             if repeat >= self._max_repeat:
@@ -38,6 +39,7 @@ class Fetcher:
             else:
                 fetch_result, content = 0, None
 
+        # FIXME
         logging.warning("%s Fetcher end: fetch_result=%s, url=%s", self.__class__.__name__, fetch_result, url)
 
         return fetch_result, content

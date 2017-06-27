@@ -25,6 +25,7 @@ class BaseThread(threading.Thread):
 
     def run(self):
 
+        # FIXME
         logging.warning("%s[%s] start...", self.__class__.__name__, self.getName())
 
         while True:
@@ -35,6 +36,7 @@ class BaseThread(threading.Thread):
             except Exception as excep:
                 break
 
+        # FIXME
         logging.warning("%s[%s] end...", self.__class__.__name__, self.getName())
 
 

@@ -12,6 +12,12 @@ class ThreadPool(BasePool):
     """
 
     def __init__(self, fetcher, parser, saver, url_filter=None):
+        """
+        :param fetcher: instance of class Fetcher
+        :param parser: instance of class Parser
+        :param saver: instance of class Saver
+        :param url_filter: whether conduct repetitive check
+        """
         BasePool.__init__(self, fetcher, parser, saver, url_filter=url_filter)
         self._fetch_queue = queue.PriorityQueue()
         self._parse_queue = queue.PriorityQueue()
@@ -23,10 +29,11 @@ class ThreadPool(BasePool):
         :url: page address
         :keys: keywords for parse
         :priority: for PriorityQueue only
-        :deep:
+        :deep: working depth
         :fetcher_num: number of FetcherThread
         """
 
+        # FIXME
         logging.warning("%s ThreadPool start: fetcher_num=%s", self.__class__.__name__, fetcher_num)
 
         self.add_task(FLAGS.URL_FETCH, (priority, url, keys, deep, repeat))
@@ -66,6 +73,7 @@ class ThreadPool(BasePool):
             if thread.is_alive():
                 thread.join()
 
+        # FIXME
         logging.warning("%s ThreadPool end: fetcher_num=%s", self.__class__.__name__, fetcher_num)
 
     def add_task(self, task_name, task_content):

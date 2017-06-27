@@ -68,7 +68,7 @@ if __name__ == "__main__":
     # exit()
     url = "https://www.jetbrains.com/help/pycharm/commenting-and-uncommenting-blocks-of-code.html"
     fetcher = Fetcher()
-    parser = Parser(max_deep=1)
+    parser = Parser(max_deep=0)
     saver = Saver()
 
     spider = ThreadPool(fetcher, parser, saver, url_filter=None)
