@@ -4,6 +4,7 @@ import threading
 import enum
 import logging
 
+
 class FLAGS(enum.Enum):
     """
     status of crawler
@@ -30,42 +31,16 @@ class BaseThread(threading.Thread):
 
         while True:
             try:  # if working() returns False, which means working() done
-                if not self.working(): break
+                if not self.working():
+                    break
             except queue.Empty:
-                if self._thread_pool.all_tasks_done(): break
-            except Exception as excep:
+                if self._thread_pool.all_tasks_done():
+                    break
+            except Exception as E:
                 break
 
         # FIXME
         logging.warning("%s[%s] end...", self.__class__.__name__, self.getName())
-
-
-class BasePool:
-    def __init__(self, fetcher, parser, saver, url_filter=None):
-        self._url_filter = url_filter  # instance of Filter, None by default
-        self._fetcher = fetcher   # instance of Fetcher
-        self._parser = parser     # instance of Parser
-        self._saver = saver       # instance of Saver
-        self._number_dict = {
-            FLAGS.TASKS_RUNNING: 0,   # the count of tasks which are running
-
-            FLAGS.URL_FETCH: 0,       # the count of urls which have been fetched successfully
-            FLAGS.HTML_PARSE: 0,      # the count of urls which have been parsed successfully
-            FLAGS.ITEM_SAVE: 0,       # the count of urls which have been saved successfully
-
-            FLAGS.URL_NOT_FETCH: 0,   # the count of urls which haven't been fetched
-            FLAGS.HTML_NOT_PARSE: 0,  # the count of urls which haven't been parsed
-            FLAGS.ITEM_NOT_SAVE: 0,   # the count of urls which haven't been saved
-        }
-
-    def all_tasks_done(self):
-        """
-        check if all tasks are done, according to self._number_dict
-        """
-        return False if self._number_dict[FLAGS.TASKS_RUNNING] \
-                        or self._number_dict[FLAGS.URL_NOT_FETCH] \
-                        or self._number_dict[FLAGS.HTML_NOT_PARSE] \
-                        or self._number_dict[FLAGS.ITEM_NOT_SAVE] else True
 
 
 def start_fetch(self):
@@ -118,4 +93,3 @@ def start_save(self):
 # Class of SaveThread (from BaseThread), with method alias "working()" to
 # start_save()
 SaveThread = type("SaveThread", (BaseThread,), dict(working=start_save))
-
